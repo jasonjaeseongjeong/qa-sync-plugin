@@ -210,6 +210,41 @@ python3 ~/.claude/skills/qa-sync/src/state_manager.py stats <project_name>
 
 ---
 
+## 모드 3: Watch (실시간 감지)
+
+백그라운드에서 Slack 채널을 모니터링하고 새 메시지 감지 시 자동으로 Linear 이슈 생성.
+
+### 사용법
+
+```bash
+# 프로젝트 목록 확인
+python3 ~/.claude/skills/qa-sync/src/slack_watcher.py list
+
+# 감시 시작 (30초 간격)
+python3 ~/.claude/skills/qa-sync/src/slack_watcher.py watch <project_name>
+
+# 감시 시작 (60초 간격)
+python3 ~/.claude/skills/qa-sync/src/slack_watcher.py watch <project_name> 60
+
+# 동기화 상태 확인
+python3 ~/.claude/skills/qa-sync/src/slack_watcher.py status <project_name>
+```
+
+### 백그라운드 실행
+
+```bash
+# 백그라운드에서 실행
+nohup python3 ~/.claude/skills/qa-sync/src/slack_watcher.py watch <project_name> > ~/qa-sync.log 2>&1 &
+
+# 로그 확인
+tail -f ~/qa-sync.log
+
+# 중지
+pkill -f slack_watcher.py
+```
+
+---
+
 ## 시나리오 생성 가이드
 
 ### 시나리오 유형
