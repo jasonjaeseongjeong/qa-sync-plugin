@@ -1,9 +1,10 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "qa-sync-marketplace",
   "description": "QA Sync 플러그인 마켓플레이스",
   "owner": {
     "name": "NeurofusionAI",
-    "url": "https://github.com/jasonjaeseongjeong"
+    "email": "jason@neurofusion.ai"
   },
   "plugins": [
     {
@@ -12,9 +13,10 @@
       "description": "PRD + 사이트 분석으로 QA 시나리오 자동 생성, Slack → Linear 이슈 동기화",
       "author": {
         "name": "NeurofusionAI",
-        "url": "https://github.com/jasonjaeseongjeong"
+        "email": "jason@neurofusion.ai"
       },
-      "source": "."
+      "source": "./",
+      "category": "productivity"
     }
   ]
 }
