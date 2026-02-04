@@ -39,21 +39,36 @@ curl -o ~/.claude/skills/qa-sync/SKILL.md https://raw.githubusercontent.com/jaso
 
 ---
 
-## 두 가지 모드
+## 4가지 모드
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        QA Sync                               │
-├─────────────────────────────┬───────────────────────────────┤
-│         Setup 모드           │          Sync 모드            │
-│         /qa-sync             │     /qa-sync --mode sync      │
-├─────────────────────────────┼───────────────────────────────┤
-│  PRD + 사이트 분석           │  Slack 쓰레드 모니터링         │
-│          ↓                   │           ↓                   │
-│  QA 시나리오 자동 생성        │  메시지 → Linear 이슈 변환     │
-├─────────────────────────────┼───────────────────────────────┤
-│  QA 시작 전 1회 실행          │  QA 진행 중 반복 실행          │
-└─────────────────────────────┴───────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              QA Sync                                          │
+├──────────────────┬──────────────────┬──────────────────┬─────────────────────┤
+│   Setup 모드      │    Sync 모드      │   Watch 모드      │   Dashboard 모드    │
+│   /qa-sync        │ --mode sync       │  (백그라운드)      │  (Notion 연동)      │
+├──────────────────┼──────────────────┼──────────────────┼─────────────────────┤
+│ PRD + 사이트 분석  │ Slack 메시지 읽기  │ 실시간 모니터링    │ 진행 현황 시각화     │
+│ (Playwright 크롤링)│       ↓           │       ↓          │       ↓            │
+│       ↓          │ Linear 이슈 생성   │ 자동 이슈 생성     │ Notion 페이지 생성  │
+│ QA 시나리오 생성   │                   │                   │                    │
+├──────────────────┼──────────────────┼──────────────────┼─────────────────────┤
+│ QA 시작 전 1회     │ QA 진행 중 수동    │ QA 진행 중 자동    │ 언제든 확인         │
+└──────────────────┴──────────────────┴──────────────────┴─────────────────────┘
+```
+
+### Python 스크립트
+
+```bash
+# 설치 (Playwright 크롤링 사용 시)
+pip install playwright && playwright install chromium
+
+# 스크립트 위치
+~/.claude/skills/qa-sync/src/
+├── state_manager.py    # 상태 저장/로드
+├── site_crawler.py     # 사이트 UI 요소 추출
+├── slack_watcher.py    # 실시간 Slack 모니터링
+└── notion_dashboard.py # 대시보드 생성
 ```
 
 ---
@@ -85,6 +100,36 @@ Slack 쓰레드의 새 메시지를 분석해서:
 - 버그/데이터 오류/개선 요청으로 분류
 - 중복 이슈 체크
 - Linear 이슈 자동 생성
+
+### 3. Watch 모드: 실시간 감지
+
+```bash
+# 백그라운드에서 Slack 모니터링 (30초 간격)
+python3 ~/.claude/skills/qa-sync/src/slack_watcher.py watch <project_name>
+
+# 60초 간격
+python3 ~/.claude/skills/qa-sync/src/slack_watcher.py watch <project_name> 60
+
+# 상태 확인
+python3 ~/.claude/skills/qa-sync/src/slack_watcher.py status <project_name>
+```
+
+새 메시지 감지 시 자동으로 Linear 이슈 생성.
+
+### 4. Dashboard 모드: Notion 대시보드
+
+```bash
+# 대시보드 출력
+python3 ~/.claude/skills/qa-sync/src/notion_dashboard.py show <project_name>
+
+# 마크다운 파일로 내보내기
+python3 ~/.claude/skills/qa-sync/src/notion_dashboard.py export ./dashboard.md <project_name>
+```
+
+대시보드 내용:
+- 시나리오 진행률 (프로그레스 바)
+- 이슈 현황 (버그/개선/데이터)
+- 최근 이슈 목록
 
 ---
 

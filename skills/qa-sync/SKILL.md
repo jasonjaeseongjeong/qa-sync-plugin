@@ -289,3 +289,48 @@ PRD에 아래 키워드가 있으면 추가 테스트:
 - 1 시나리오 = 1 검증
 - 독립 실행 (의존성 없음)
 - 3-5 스텝 이내
+
+---
+
+## 모드 4: Dashboard (Notion 대시보드)
+
+QA 진행 현황을 Notion 페이지로 자동 생성/업데이트.
+
+### 사용법
+
+```bash
+# 대시보드 출력 (콘솔)
+python3 ~/.claude/skills/qa-sync/src/notion_dashboard.py show <project_name>
+
+# 전체 프로젝트 요약
+python3 ~/.claude/skills/qa-sync/src/notion_dashboard.py show
+
+# 마크다운 파일로 내보내기
+python3 ~/.claude/skills/qa-sync/src/notion_dashboard.py export ./dashboard.md <project_name>
+
+# Notion 업데이트 안내
+python3 ~/.claude/skills/qa-sync/src/notion_dashboard.py notion <project_name>
+```
+
+### Notion 업데이트
+
+대시보드 콘텐츠를 Notion에 업데이트하려면:
+
+1. 대시보드 마크다운 생성:
+   ```bash
+   python3 ~/.claude/skills/qa-sync/src/notion_dashboard.py show <project_name>
+   ```
+
+2. Claude Code에서 Notion MCP 사용:
+   ```
+   mcp__notion__notion-update-page 또는
+   mcp__notion__notion-create-pages
+   ```
+
+### 대시보드 내용
+
+- 📊 프로젝트 요약 (사이트, Slack, Linear 링크)
+- 🏃 시나리오 진행률 (프로그레스 바)
+- 🐛 이슈 현황 (버그/개선/데이터 비율)
+- 📋 최근 이슈 목록
+- 📝 시나리오 목록 (미완료/완료)
