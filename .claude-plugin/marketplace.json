@@ -14,10 +14,7 @@
         "name": "NeurofusionAI",
         "url": "https://github.com/jasonjaeseongjeong"
       },
-      "source": {
-        "type": "local",
-        "path": "."
-      }
+      "source": "."
     }
   ]
 }
