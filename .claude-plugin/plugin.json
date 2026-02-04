@@ -1,0 +1,9 @@
+{
+  "name": "qa-sync",
+  "version": "1.0.0",
+  "description": "PRD + 사이트 분석으로 QA 시나리오 자동 생성, Slack → Linear 이슈 동기화",
+  "author": {
+    "name": "NeurofusionAI",
+    "email": "jason@neurofusion.ai"
+  }
+}
