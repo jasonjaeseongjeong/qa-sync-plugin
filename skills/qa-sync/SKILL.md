@@ -1,3 +1,7 @@
+---
+description: PRD + 사이트 분석으로 QA 시나리오 자동 생성, Slack → Linear 이슈 동기화
+---
+
 # QA Sync
 
 PRD + 사이트 분석으로 QA 시나리오 자동 생성, Slack 피드백을 Linear 이슈로 동기화.
