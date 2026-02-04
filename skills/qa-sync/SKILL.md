@@ -99,6 +99,34 @@ create_project("프로젝트명", {
 python3 ~/.claude/skills/qa-sync/src/site_crawler.py <site_url> ./qa-screenshots
 ```
 
+**로그인 페이지 감지 시 (중요):**
+
+크롤링 결과에서 로그인 폼이 감지되면 (email/password 필드, 로그인 버튼 등):
+
+1. 사용자에게 안내:
+   > "로그인이 필요한 페이지입니다. 브라우저에서 로그인을 진행해주세요."
+
+2. 로그인 실행:
+   ```bash
+   python3 ~/.claude/skills/qa-sync/src/auth_manager.py login <site_url> <project_name>
+   ```
+   - 브라우저가 열림
+   - 사용자가 직접 로그인
+   - 터미널에서 Enter 입력
+   - 쿠키 자동 저장
+
+3. 로그인 완료 후 인증된 상태로 다시 크롤링:
+   ```bash
+   python3 ~/.claude/skills/qa-sync/src/site_crawler.py --auth <project_name> <site_url> ./qa-screenshots
+   ```
+
+4. **로그인 실패 또는 취소 시** 사용자에게 질문:
+   > "로그인에 실패했습니다. 어떻게 진행할까요?"
+   > 1. 다시 로그인 시도
+   > 2. PRD 기반으로만 시나리오 생성 (사이트 분석 없이)
+
+**참고:** 크롤링 완료 후 인증 쿠키는 자동 삭제됩니다.
+
 크롤링 결과:
 - 버튼 목록 (텍스트, 선택자, 활성화 상태)
 - 폼 구조 (필드명, 타입, 필수 여부)
