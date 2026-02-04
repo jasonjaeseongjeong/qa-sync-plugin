@@ -4,11 +4,14 @@ QA Sync Site Crawler
 - Playwright로 사이트 UI 요소 자동 추출
 - 버튼, 폼, 링크, 인터랙션 포인트 분석
 - QA 시나리오 생성을 위한 데이터 제공
+- 인증 지원 (쿠키, Chrome 프로필)
 """
 
 import json
 import asyncio
+import sys
 from dataclasses import dataclass, asdict
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urljoin, urlparse
 
@@ -17,7 +20,15 @@ try:
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
-    print("Warning: playwright not installed. Run: pip install playwright && playwright install")
+    print("Warning: playwright not installed. Run: python3 src/install.py")
+
+# 인증 관리자 임포트
+sys.path.insert(0, str(Path(__file__).parent))
+try:
+    from auth_manager import load_cookies, apply_cookies_async, export_cookies_from_browser
+    AUTH_AVAILABLE = True
+except ImportError:
+    AUTH_AVAILABLE = False
 
 
 @dataclass
@@ -46,20 +57,43 @@ class PageAnalysis:
 
 
 class SiteCrawler:
-    def __init__(self, headless: bool = True):
+    def __init__(self, headless: bool = True, auth_site: Optional[str] = None):
+        """
+        Args:
+            headless: 브라우저 숨김 모드
+            auth_site: 인증에 사용할 사이트 이름 (저장된 쿠키 사용)
+        """
         self.headless = headless
+        self.auth_site = auth_site
         self.browser: Optional[Browser] = None
+        self.context = None
         self.results = []
 
     async def __aenter__(self):
         if not PLAYWRIGHT_AVAILABLE:
-            raise RuntimeError("Playwright not installed")
+            raise RuntimeError("Playwright not installed. Run: python3 src/install.py")
 
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.launch(headless=self.headless)
+
+        # 브라우저 컨텍스트 생성
+        self.context = await self.browser.new_context()
+
+        # 인증 쿠키 적용
+        if self.auth_site and AUTH_AVAILABLE:
+            cookies = load_cookies(self.auth_site)
+            if cookies:
+                await self.context.add_cookies(cookies)
+                print(f"✅ 인증 쿠키 적용: {self.auth_site} ({len(cookies)}개)")
+            else:
+                print(f"⚠️ 저장된 인증 없음: {self.auth_site}")
+                print(f"   python3 src/auth_manager.py login <url> {self.auth_site}")
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.context:
+            await self.context.close()
         if self.browser:
             await self.browser.close()
         if self.playwright:
@@ -67,11 +101,12 @@ class SiteCrawler:
 
     async def analyze_page(self, url: str, screenshot_dir: Optional[str] = None) -> PageAnalysis:
         """단일 페이지 분석"""
-        page = await self.browser.new_page()
+        page = await self.context.new_page()
 
         try:
-            await page.goto(url, wait_until="networkidle", timeout=30000)
-            await page.wait_for_timeout(1000)  # 동적 콘텐츠 로딩 대기
+            # load로 변경 (networkidle은 일부 SPA에서 타임아웃)
+            await page.goto(url, wait_until="load", timeout=60000)
+            await page.wait_for_timeout(2000)  # 동적 콘텐츠 로딩 대기
 
             title = await page.title()
 
@@ -372,47 +407,112 @@ class SiteCrawler:
         return md
 
 
-async def crawl_site(url: str, screenshot_dir: Optional[str] = None) -> dict:
-    """사이트 크롤링 메인 함수"""
-    async with SiteCrawler(headless=True) as crawler:
+async def crawl_site(url: str, screenshot_dir: Optional[str] = None, auth_site: Optional[str] = None, cleanup_auth: bool = True) -> dict:
+    """
+    사이트 크롤링 메인 함수
+
+    Args:
+        url: 크롤링할 URL
+        screenshot_dir: 스크린샷 저장 경로
+        auth_site: 인증에 사용할 사이트 이름 (저장된 쿠키 사용)
+        cleanup_auth: 크롤링 후 인증 쿠키 자동 삭제 (기본: True)
+    """
+    async with SiteCrawler(headless=True, auth_site=auth_site) as crawler:
         analysis = await crawler.analyze_page(url, screenshot_dir)
-        return {
+        result = {
             "analysis": asdict(analysis) if hasattr(analysis, '__dataclass_fields__') else analysis.__dict__,
             "markdown": crawler.to_markdown(analysis)
         }
 
+    # 크롤링 완료 후 인증 쿠키 자동 삭제
+    if auth_site and cleanup_auth and AUTH_AVAILABLE:
+        from auth_manager import delete_cookies
+        delete_cookies(auth_site)
+        print(f"🧹 인증 쿠키 자동 삭제: {auth_site}")
 
-def crawl_site_sync(url: str, screenshot_dir: Optional[str] = None) -> dict:
+    return result
+
+
+def crawl_site_sync(url: str, screenshot_dir: Optional[str] = None, auth_site: Optional[str] = None, cleanup_auth: bool = True) -> dict:
     """동기 버전 (CLI용)"""
-    return asyncio.run(crawl_site(url, screenshot_dir))
+    return asyncio.run(crawl_site(url, screenshot_dir, auth_site, cleanup_auth))
 
 
 # CLI 인터페이스
 if __name__ == "__main__":
-    import sys
+    import argparse
 
-    if len(sys.argv) < 2:
-        print("Usage: site_crawler.py <url> [screenshot_dir]")
-        print("Example: site_crawler.py https://example.com ./screenshots")
+    parser = argparse.ArgumentParser(description="QA Sync Site Crawler")
+    parser.add_argument("url", nargs="?", help="크롤링할 URL")
+    parser.add_argument("screenshot_dir", nargs="?", help="스크린샷 저장 경로")
+    parser.add_argument("--auth", "-a", help="인증에 사용할 사이트 이름")
+    parser.add_argument("--login", "-l", help="로그인 후 쿠키 저장 (사이트 이름)")
+    parser.add_argument("--list-auth", action="store_true", help="저장된 인증 목록")
+
+    args = parser.parse_args()
+
+    # 인증 목록 보기
+    if args.list_auth:
+        if AUTH_AVAILABLE:
+            from auth_manager import list_saved_auth, get_auth_path
+            sites = list_saved_auth()
+            if sites:
+                print("저장된 인증:")
+                for site in sites:
+                    print(f"  - {site}")
+            else:
+                print("저장된 인증 없음")
+        else:
+            print("auth_manager를 찾을 수 없습니다.")
+        sys.exit(0)
+
+    # 로그인 모드
+    if args.login:
+        if not args.url:
+            print("Error: URL이 필요합니다.")
+            print("Usage: site_crawler.py --login <site_name> <url>")
+            sys.exit(1)
+
+        if AUTH_AVAILABLE:
+            export_cookies_from_browser(args.url, args.login)
+        else:
+            print("auth_manager를 찾을 수 없습니다.")
+        sys.exit(0)
+
+    # 크롤링 모드
+    if not args.url:
+        parser.print_help()
+        print("\nExamples:")
+        print("  # 기본 크롤링")
+        print("  python3 site_crawler.py https://example.com ./screenshots")
+        print("")
+        print("  # 로그인 후 쿠키 저장")
+        print("  python3 site_crawler.py --login valley https://valley.town")
+        print("")
+        print("  # 저장된 인증으로 크롤링")
+        print("  python3 site_crawler.py https://valley.town/dashboard ./screenshots --auth valley")
+        print("")
+        print("  # 저장된 인증 목록")
+        print("  python3 site_crawler.py --list-auth")
         sys.exit(1)
-
-    url = sys.argv[1]
-    screenshot_dir = sys.argv[2] if len(sys.argv) > 2 else None
 
     if not PLAYWRIGHT_AVAILABLE:
         print("Error: playwright not installed")
-        print("Run: pip install playwright && playwright install chromium")
+        print("Run: python3 src/install.py")
         sys.exit(1)
 
-    print(f"Crawling {url}...")
-    result = crawl_site_sync(url, screenshot_dir)
+    print(f"🔍 Crawling {args.url}...")
+    if args.auth:
+        print(f"   인증: {args.auth}")
+
+    result = crawl_site_sync(args.url, args.screenshot_dir, args.auth)
 
     print("\n" + "=" * 50)
     print(result["markdown"])
 
     # JSON 출력
-    if screenshot_dir:
-        json_path = f"{screenshot_dir}/analysis.json"
+    if args.screenshot_dir:
+        json_path = f"{args.screenshot_dir}/analysis.json"
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(result["analysis"], f, ensure_ascii=False, indent=2)
         print(f"\nJSON saved to: {json_path}")

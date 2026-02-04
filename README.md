@@ -60,15 +60,36 @@ curl -o ~/.claude/skills/qa-sync/SKILL.md https://raw.githubusercontent.com/jaso
 ### Python 스크립트
 
 ```bash
-# 설치 (Playwright 크롤링 사용 시)
+# 원클릭 설치 (권장)
+python3 src/install.py
+
+# 또는 수동 설치
 pip install playwright && playwright install chromium
 
 # 스크립트 위치
-~/.claude/skills/qa-sync/src/
+src/
+├── install.py          # 원클릭 설치
+├── auth_manager.py     # 로그인/쿠키 관리
 ├── state_manager.py    # 상태 저장/로드
 ├── site_crawler.py     # 사이트 UI 요소 추출
 ├── slack_watcher.py    # 실시간 Slack 모니터링
 └── notion_dashboard.py # 대시보드 생성
+```
+
+### 로그인이 필요한 사이트
+
+```bash
+# 1. 로그인 후 쿠키 저장 (브라우저 열림)
+python3 src/auth_manager.py login https://your-site.com site-name
+
+# 2. 저장된 쿠키로 크롤링
+python3 src/site_crawler.py --auth site-name https://your-site.com/page ./screenshots
+
+# 저장된 인증 목록
+python3 src/auth_manager.py list
+
+# 인증 삭제
+python3 src/auth_manager.py delete site-name
 ```
 
 ---
@@ -193,6 +214,26 @@ claude plugin install qa-sync@qa-sync-marketplace
 ### Slack/Linear 연동 오류
 
 `/qa-sync` 실행 시 자동으로 연동 가이드가 나옵니다.
+
+### Playwright 설치 오류
+
+```bash
+# macOS에서 "externally-managed-environment" 오류 시
+python3 src/install.py  # venv 자동 생성
+
+# 또는 수동으로 venv 생성
+python3 -m venv venv
+source venv/bin/activate
+pip install playwright
+playwright install chromium
+```
+
+### 로그인 쿠키가 만료됨
+
+```bash
+# 쿠키 다시 저장
+python3 src/auth_manager.py login https://your-site.com site-name
+```
 
 ---
 
